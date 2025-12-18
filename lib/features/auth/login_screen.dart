@@ -25,14 +25,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
+      // 1. محاولة تسجيل الدخول
       final response = await _service.signIn(
         _emailController.text.trim(), 
         _passwordController.text.trim()
       );
       
       if (mounted && response.user != null) {
-        // الانتقال للشاشة الرئيسية واستبدال شاشة الدخول في ذاكرة النظام
-        Navigator.pushReplacementNamed(context, '/home');
+        // 2. خطوة هامة جداً للنظام الجديد: تحميل الصلاحيات التفصيلية
+        await _service.loadUserPermissions();
+
+        if (mounted) {
+          // 3. الانتقال للشاشة الرئيسية واستبدال شاشة الدخول
+          Navigator.pushReplacementNamed(context, '/home');
+        }
       }
     } catch (e) {
       _showError("فشل تسجيل الدخول: تأكد من البيانات المدخلة");

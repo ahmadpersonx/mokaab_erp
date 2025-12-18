@@ -25,7 +25,7 @@ class CostCenterService {
 
       List<CostCenterModel> centers = [];
       for (var item in response) {
-        centers.add(CostCenterModel.fromMap(item as Map<String, dynamic>));
+        centers.add(CostCenterModel.fromMap(item));
       }
       return centers;
     } catch (e) {

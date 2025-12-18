@@ -1,12 +1,14 @@
-// [كود رقم 58] - journal_entries_screen.dart (الكامل مع تعريب الحالة والفلاتر)
+//الكود الكامل والنهائي لملف lib/features/finance/journal_entries_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 import '../../core/constants/app_theme.dart';
-import 'add_journal_entry_screen.dart'; 
+import '../../core/models/account_model.dart';
+import '../../core/widgets/draggable_popup.dart'; // ✅ تأكد من وجود هذا الملف
+import 'add_journal_entry_screen.dart';
 import 'finance_service.dart';
 
-// تحويل الشاشة إلى StatefulWidget لإدارة حالة جلب البيانات والفلاتر
 class JournalEntriesScreen extends StatefulWidget {
   const JournalEntriesScreen({super.key});
 
@@ -16,349 +18,365 @@ class JournalEntriesScreen extends StatefulWidget {
 
 class _JournalEntriesScreenState extends State<JournalEntriesScreen> {
   final FinanceService _service = FinanceService();
-  List<Map<String, dynamic>> _journalEntries = [];
+  
+  List<Map<String, dynamic>> _allEntries = [];
+  List<Map<String, dynamic>> _filteredEntries = [];
+  List<AccountModel> _accounts = []; // قائمة الحسابات للفلتر
+
   bool _isLoading = true;
-  Map<String, dynamic> _currentFilters = {}; 
+
+  // فلاتر البحث المحلي
+  final TextEditingController _searchController = TextEditingController();
+  
+  // فلاتر التصفية (للسيرفر)
+  DateTime? _fromDate;
+  DateTime? _toDate;
+  String? _selectedAccountId;
 
   @override
   void initState() {
     super.initState();
-    _fetchEntries();
+    _loadInitialData();
   }
 
-  Future<void> _fetchEntries({Map<String, dynamic>? filters}) async {
-    setState(() {
-      _isLoading = true;
-      if (filters != null) {
-        _currentFilters = filters; 
-      }
-    });
-    
+  Future<void> _loadInitialData() async {
+    setState(() => _isLoading = true);
+    try {
+      // تحميل الحسابات لاستخدامها في الفلتر
+      _accounts = await _service.getAllAccounts();
+      // تحميل القيود
+      await _loadEntries();
+    } catch (e) {
+      debugPrint("Error: $e");
+    }
+  }
+
+  Future<void> _loadEntries() async {
+    setState(() => _isLoading = true);
     try {
       final data = await _service.getJournalEntriesSummary(
-        entryNumber: _currentFilters['entryNumber'],
-        reference: _currentFilters['reference'],
-        status: _currentFilters['status'],
-        fromDate: _currentFilters['fromDate'],
-        toDate: _currentFilters['toDate'],
+        fromDate: _fromDate,
+        toDate: _toDate,
+        accountId: _selectedAccountId,
       );
-      
       setState(() {
-        _journalEntries = data.reversed.toList(); 
+        _allEntries = data;
+        _applyLocalSearch(); // تطبيق البحث النصي
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('فشل جلب القيود: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ));
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("خطأ: $e")));
       }
     }
   }
 
-  void _navigateToAddEntry(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddJournalEntryScreen()),
-    ).then((_) {
-      _fetchEntries();
+  // البحث المحلي السريع داخل القائمة المحملة
+  void _applyLocalSearch() {
+    final query = _searchController.text.toLowerCase();
+    
+    setState(() {
+      _filteredEntries = _allEntries.where((entry) {
+        final entryNo = entry['id'].toString().toLowerCase();
+        final refNo = (entry['ref_number'] ?? '').toString().toLowerCase();
+        final desc = (entry['description'] ?? '').toString().toLowerCase();
+        final accounts = (entry['search_text'] ?? '').toString().toLowerCase(); // البحث في أسماء الحسابات
+        
+        return entryNo.contains(query) || 
+               refNo.contains(query) || 
+               desc.contains(query) ||
+               accounts.contains(query);
+      }).toList();
     });
   }
 
-  void _navigateToEditEntry(BuildContext context, String entryNumber) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddJournalEntryScreen(entryNumber: entryNumber),
-      ),
-    ).then((_) {
-      _fetchEntries();
-    });
-  }
-
-  void _showFilterDialog(BuildContext context) {
-    String? tempEntryNumber = _currentFilters['entryNumber'];
-    String? tempReference = _currentFilters['reference'];
-    String? tempStatus = _currentFilters['status'];
-    DateTime? tempFromDate = _currentFilters['fromDate'];
-    DateTime? tempToDate = _currentFilters['toDate'];
-
+  // ✅ النافذة المنبثقة القابلة للتحريك (Draggable Popup)
+  void _showFilterSheet() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تصفية القيود اليومية'),
-        content: StatefulBuilder( 
-          builder: (BuildContext context, StateSetter setStateDialog) {
-            return SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(labelText: 'رقم القيد', border: OutlineInputBorder(), isDense: true),
-                    controller: TextEditingController(text: tempEntryNumber),
-                    onChanged: (v) => tempEntryNumber = v.isEmpty ? null : v,
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    decoration: const InputDecoration(labelText: 'الرقم المرجعي', border: OutlineInputBorder(), isDense: true),
-                    controller: TextEditingController(text: tempReference),
-                    onChanged: (v) => tempReference = v.isEmpty ? null : v,
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'الحالة', border: OutlineInputBorder(), isDense: true),
-                    initialValue: tempStatus,
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('الكل')),
-                      DropdownMenuItem(value: 'Draft', child: Text('مسودة')),
-                      DropdownMenuItem(value: 'posted', child: Text('مرحل')), // يجب أن تتطابق القيمة مع المخزنة في DB
-                      DropdownMenuItem(value: 'Canceled', child: Text('ملغي')),
-                    ],
-                    onChanged: (v) => setStateDialog(() => tempStatus = v),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildDateFilterRow(context, 'من تاريخ', tempFromDate, (date) => setStateDialog(() => tempFromDate = date)),
-                  _buildDateFilterRow(context, 'إلى تاريخ', tempToDate, (date) => setStateDialog(() => tempToDate = date)),
-                ],
-              ),
-            );
-          },
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          TextButton(onPressed: () {
-            Navigator.pop(ctx);
-            _fetchEntries(filters: {});
-          }, child: const Text('مسح الفلاتر')),
-          ElevatedButton(onPressed: () {
-            Navigator.pop(ctx);
-            _fetchEntries(filters: {
-              'entryNumber': tempEntryNumber,
-              'reference': tempReference,
-              'status': tempStatus,
-              'fromDate': tempFromDate, 
-              'toDate': tempToDate,
-            });
-          }, child: const Text('تطبيق الفلتر')),
-        ],
-      ),
-    );
-  }
+      barrierDismissible: false, // نجعلها تبدو ثابتة
+      builder: (context) => DraggablePopup(
+        title: "تصفية القيود",
+        width: 500, // عرض مناسب
+        onClose: () => Navigator.pop(context),
+        child: StatefulBuilder(
+          builder: (context, setStatePopup) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 1. التاريخ
+                const Text("نطاق التاريخ", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.kDarkBrown)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.calendar_today, size: 16),
+                        label: Text(_fromDate == null ? "من تاريخ" : DateFormat('yyyy-MM-dd').format(_fromDate!)),
+                        onPressed: () async {
+                          final d = await showDatePicker(context: context, initialDate: _fromDate ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
+                          if (d != null) setStatePopup(() => _fromDate = d);
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.calendar_today, size: 16),
+                        label: Text(_toDate == null ? "إلى تاريخ" : DateFormat('yyyy-MM-dd').format(_toDate!)),
+                        onPressed: () async {
+                          final d = await showDatePicker(context: context, initialDate: _toDate ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
+                          if (d != null) setStatePopup(() => _toDate = d);
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
 
-  Widget _buildDateFilterRow(BuildContext context, String label, DateTime? selectedDate, Function(DateTime?) onDateSelected) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        TextButton(
-          onPressed: () async {
-            DateTime? picked = await showDatePicker(
-              context: context,
-              initialDate: selectedDate ?? DateTime.now(),
-              firstDate: DateTime(2000),
-              lastDate: DateTime(2100),
+                // 2. فلتر الحساب
+                const Text("يحتوي على الحساب", style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.kDarkBrown)),
+                const SizedBox(height: 10),
+                DropdownSearch<AccountModel>(
+                  items: (f, l) => _accounts,
+                  itemAsString: (a) => "${a.code} - ${a.nameAr}",
+                  compareFn: (a, b) => a.code == b.code,
+                  selectedItem: _selectedAccountId == null 
+                      ? null 
+                      : _accounts.firstWhere((a) => a.code == _selectedAccountId, orElse: () => _accounts.first),
+                  onChanged: (val) => setStatePopup(() => _selectedAccountId = val?.code),
+                  popupProps: const PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(decoration: InputDecoration(hintText: "بحث عن حساب...", isDense: true, border: OutlineInputBorder())),
+                    menuProps: MenuProps(borderRadius: BorderRadius.all(Radius.circular(10))),
+                  ),
+                  decoratorProps: const DropDownDecoratorProps(
+                    decoration: InputDecoration(
+                      labelText: "اختر حساباً",
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                // أزرار التحكم
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          // تصفير القيم في الحالة العامة
+                          setState(() {
+                            _fromDate = null;
+                            _toDate = null;
+                            _selectedAccountId = null;
+                          });
+                          Navigator.pop(context);
+                          _loadEntries();
+                        },
+                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                        child: const Text("مسح الكل"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.kDarkBrown, 
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14)
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _loadEntries(); // تطبيق الفلتر وإعادة التحميل
+                        },
+                        child: const Text("تطبيق"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             );
-            onDateSelected(picked);
-          },
-          child: Text(selectedDate == null ? 'اختر التاريخ' : DateFormat('yyyy-MM-dd').format(selectedDate)),
+          }
         ),
-        if (selectedDate != null)
-          IconButton(
-            icon: const Icon(Icons.clear, size: 18),
-            onPressed: () => onDateSelected(null),
-          ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('القيود اليومية'),
+        title: const Text('القيود اليومية', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
         backgroundColor: AppTheme.kDarkBrown,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: true, 
-        actions: [
-          IconButton(
-            onPressed: () => _showFilterDialog(context),
-            icon: const FaIcon(FontAwesomeIcons.filter),
-            tooltip: 'تصفية متقدمة',
+        elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppTheme.kDarkBrown,
+        tooltip: 'إضافة قيد جديد',
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (context) => const AddJournalEntryScreen()));
+          _loadEntries();
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: Column(
+        children: [
+          // شريط البحث العلوي
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "بحث برقم القيد، البيان، أو اسم الحساب...",
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (val) => _applyLocalSearch(),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                InkWell(
+                  onTap: _showFilterSheet,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (_fromDate != null || _selectedAccountId != null) ? AppTheme.kDarkBrown.withOpacity(0.1) : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: (_fromDate != null || _selectedAccountId != null) ? AppTheme.kDarkBrown : Colors.transparent),
+                    ),
+                    child: Icon(Icons.filter_list, color: (_fromDate != null || _selectedAccountId != null) ? AppTheme.kDarkBrown : Colors.grey.shade700),
+                  ),
+                ),
+              ],
+            ),
           ),
-          IconButton(
-            onPressed: () => _navigateToAddEntry(context),
-            icon: const FaIcon(FontAwesomeIcons.plus),
-            tooltip: 'إضافة قيد جديد',
+          
+          // قائمة القيود
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.kDarkBrown))
+                : _filteredEntries.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.search_off, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text("لا توجد قيود مطابقة", style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                        itemCount: _filteredEntries.length,
+                        itemBuilder: (context, index) {
+                          final entry = _filteredEntries[index];
+                          final bool isPosted = entry['status'] == 'posted';
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            elevation: 0,
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: Colors.grey.shade200),
+                            ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () async {
+                                await Navigator.push(context, MaterialPageRoute(builder: (context) => AddJournalEntryScreen(entryNumber: entry['id'])));
+                                _loadEntries();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(entry['id'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: isPosted ? Colors.green.shade50 : Colors.amber.shade50,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: isPosted ? Colors.green.shade200 : Colors.amber.shade200),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(isPosted ? Icons.check_circle : Icons.edit_note, size: 14, color: isPosted ? Colors.green.shade700 : Colors.amber.shade800),
+                                              const SizedBox(width: 4),
+                                              Text(isPosted ? "مرحل" : "مسودة", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isPosted ? Colors.green.shade700 : Colors.amber.shade800)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (entry['description'] != null)
+                                      Text(entry['description'], style: const TextStyle(fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    
+                                    // عرض أطراف القيد (للتأكد من نتيجة البحث)
+                                    if (entry['search_text'] != null) 
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4.0),
+                                        child: Text(
+                                          "أطراف: ${(entry['search_text'] as String).split(' ').take(4).join(' - ')}...", 
+                                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade400),
+                                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      
+                                    const Divider(height: 20),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                                            const SizedBox(width: 4),
+                                            Text(DateFormat('yyyy-MM-dd').format(DateTime.parse(entry['date'])), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                          ],
+                                        ),
+                                        Text(
+                                          (entry['debit'] as double).toStringAsFixed(2), 
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.kDarkBrown, fontFamily: 'Courier'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchEntries, 
-              child: _journalEntries.isEmpty
-                  ? Center(
-                      child: Text('لا توجد قيود يومية تتطابق مع الفلاتر المطبقة. ${_currentFilters.isNotEmpty ? 'مسح الفلاتر؟' : ''}'),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(8.0),
-                      itemCount: _journalEntries.length,
-                      itemBuilder: (context, index) {
-                        final entry = _journalEntries[index];
-                        return InkWell(
-                          onTap: () => _navigateToEditEntry(context, entry['id'] as String),
-                          child: JournalEntryCard(entry: entry),
-                        );
-                      },
-                    ),
-            ),
-    );
-  }
-}
-
-// (JournalEntryCard class - مع تعريب الحالة)
-class JournalEntryCard extends StatelessWidget {
-  final Map<String, dynamic> entry;
-
-  const JournalEntryCard({super.key, required this.entry});
-
-  // دالة تحويل حالة القيد من الإنجليزية إلى العربية
-  String _mapStatusToArabic(String? status) {
-    switch (status) {
-      case 'Draft':
-        return 'مسودة';
-      case 'posted':
-        return 'مرحل';
-      case 'Canceled':
-        return 'ملغي';
-      default:
-        return 'غير محدد';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // تحديد اللون (باستخدام القيمة المخزنة في DB)
-    Color statusColor = entry['status'] == 'posted' 
-        ? Colors.green 
-        : entry['status'] == 'Canceled' 
-            ? Colors.red 
-            : Colors.amber;
-
-    // تحويل الحالة للعرض
-    final arabicStatus = _mapStatusToArabic(entry['status'] as String?);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: statusColor.withOpacity(0.5), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // الصف الأول: رقم القيد والتاريخ والحالة
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  entry['id'],
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.kDarkBrown),
-                ),
-                _buildStatusTag(arabicStatus, statusColor), // استخدام الحالة المعربة
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            // الصف الثاني: الوصف
-            Text(
-              entry['description'],
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            
-            // الصف الثالث: التاريخ والرقم المرجعي
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const FaIcon(FontAwesomeIcons.calendarDay, size: 12, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      'التاريخ: ${entry['date']}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const FaIcon(FontAwesomeIcons.tag, size: 12, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Text(
-                      'مرجع: ${entry['ref_number']}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-
-            // الصف الرابع: الإجمالي المدين والدائن
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildTotalRow(
-                    'المدين', entry['debit'], Colors.green.shade700),
-                _buildTotalRow(
-                    'الدائن', entry['credit'], Colors.red.shade700),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusTag(String status, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10),
-      ),
-    );
-  }
-
-  Widget _buildTotalRow(String label, double amount, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '${amount.toStringAsFixed(2)} \$', 
-          style: TextStyle(
-              fontSize: 16, fontWeight: FontWeight.bold, color: color),
-        ),
-      ],
     );
   }
 }
