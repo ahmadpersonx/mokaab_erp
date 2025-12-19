@@ -1,7 +1,7 @@
 //شاشة تسجيل الدخول: lib/features/auth/login_screen.dart
 import 'package:flutter/material.dart';
 import '../../core/constants/app_theme.dart';
-import '../finance/finance_service.dart';
+import '../finance/services/finance_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

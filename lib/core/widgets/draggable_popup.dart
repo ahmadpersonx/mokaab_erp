@@ -1,20 +1,24 @@
+// FileName: lib/core/widgets/draggable_popup.dart
+// Revision: 2.0 (Final Structural Standard - Ant Design Style)
+// Date: 2025-12-19
 
-//lib/core/widgets/draggable_popup.dart هذا الكود 
 import 'package:flutter/material.dart';
-import '../../core/constants/app_theme.dart';
+import '../constants/app_theme.dart';
 
 class DraggablePopup extends StatefulWidget {
   final String title;
-  final Widget child;
-  final VoidCallback? onClose;
-  final double? width;
+  final Widget content; // الاسم الجديد ليعبر عن المحتوى فقط
+  final List<Widget>? actions; // مكان مخصص للأزرار السفلية
+  final VoidCallback? onClose; // أبقينا عليها للمرونة
+  final double width;
 
   const DraggablePopup({
     super.key,
     required this.title,
-    required this.child,
+    required this.content,
+    this.actions,
     this.onClose,
-    this.width,
+    this.width = 600,
   });
 
   @override
@@ -22,36 +26,38 @@ class DraggablePopup extends StatefulWidget {
 }
 
 class _DraggablePopupState extends State<DraggablePopup> {
-  Offset _offset = Offset.zero; // لتخزين إحداثيات التحريك
+  Offset _offset = Offset.zero;
 
   @override
   Widget build(BuildContext context) {
-    // نستخدم Dialog لضمان التوسط والتعتيم الخلفي
     return Dialog(
-      backgroundColor: Colors.transparent, // شفافية للسماح بشكلنا الخاص
-      insetPadding: const EdgeInsets.all(20), // هوامش من الحواف
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
       child: Transform.translate(
-        offset: _offset, // تطبيق الحركة
-        child: SizedBox(
-          width: widget.width ?? 500, // عرض افتراضي مناسب للديسك توب
+        offset: _offset,
+        child: GestureDetector(
+          onTap: () {}, 
           child: Container(
+            width: widget.width,
+            constraints: const BoxConstraints(maxHeight: 800),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
+              color: AppTheme.kWhite,
+              borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 15,
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
                   offset: const Offset(0, 10),
-                )
+                ),
               ],
+              border: Border.all(color: AppTheme.kBorder, width: 1),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // === شريط العنوان (منطقة التحريك) ===
+                // === 1. Header (Draggable) ===
                 GestureDetector(
-                  // هنا يكمن السحر: عند سحب الشريط، نحدث الإحداثيات
                   onPanUpdate: (details) {
                     setState(() {
                       _offset += details.delta;
@@ -61,45 +67,62 @@ class _DraggablePopupState extends State<DraggablePopup> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
                       color: AppTheme.kDarkBrown,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(7),
+                        topRight: Radius.circular(7),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // أيقونة السحب (مؤشر بصري)
-                        const Icon(Icons.drag_indicator, color: Colors.white54, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                        Row(
+                          children: [
+                            const Icon(Icons.drag_indicator, color: AppTheme.kLightBeige, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
+                          ],
                         ),
-                        // زر الإغلاق
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: widget.onClose ?? () => Navigator.pop(context),
-                            child: const Icon(Icons.close, color: Colors.white, size: 20),
-                          ),
+                        InkWell(
+                          onTap: widget.onClose ?? () => Navigator.of(context).pop(),
+                          child: const Icon(Icons.close, color: Colors.white, size: 20),
                         ),
                       ],
                     ),
                   ),
                 ),
-                
-                // === محتوى النافذة ===
+
+                // === 2. Content Body ===
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: widget.child,
+                    padding: const EdgeInsets.all(24),
+                    child: widget.content, // استخدام content
                   ),
                 ),
+
+                // === 3. Actions Footer (Optional) ===
+                if (widget.actions != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      border: Border(top: BorderSide(color: AppTheme.kBorder)),
+                      color: AppTheme.kOffWhite,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(7),
+                        bottomRight: Radius.circular(7),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: widget.actions!,
+                    ),
+                  ),
               ],
             ),
           ),
