@@ -5,11 +5,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../../core/constants/app_theme.dart';
 import '../../../../core/services/pdf_service.dart';
 import '../../../../core/screens/pdf_preview_screen.dart';
 import '../services/finance_service.dart';
-import '../models/account_model.dart';
+import '../../../core/models/account.dart';
 import 'smart_voucher_screen.dart';
 
 // --- Shared Component: Print Action Menu ---
@@ -96,13 +95,13 @@ class _ReceiptBondsScreenState extends State<ReceiptBondsScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _bonds = [];
   List<Map<String, dynamic>> _filteredBonds = [];
-  List<AccountModel> _accounts = [];
+  List<Account> _accounts = [];
   
   // Filters
   final Set<String> _selectedIds = {}; // استخدام رقم السند كمعرف
   DateTime? _fromDate;
   DateTime? _toDate;
-  AccountModel? _selectedAccount;
+  Account? _selectedAccount;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -288,7 +287,7 @@ class _ReceiptBondsScreenState extends State<ReceiptBondsScreen> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<AccountModel>(
+              child: DropdownButton<Account>(
                 isExpanded: true,
                 hint: const Text("تصفية حسب العميل / الحساب"),
                 value: _selectedAccount,
@@ -421,8 +420,11 @@ class _ReceiptBondsScreenState extends State<ReceiptBondsScreen> {
               activeColor: const Color(0xFF388E3C),
               onChanged: (val) {
                 setState(() {
-                  if (val == true) _selectedIds.add(voucherNo);
-                  else _selectedIds.remove(voucherNo);
+                  if (val == true) {
+                    _selectedIds.add(voucherNo);
+                  } else {
+                    _selectedIds.remove(voucherNo);
+                  }
                 });
               },
             ),
@@ -473,16 +475,18 @@ class _ReceiptBondsScreenState extends State<ReceiptBondsScreen> {
               // فتح للتعديل في وضع التحديد نلغي التحديد، وإلا نفتح التفاصيل
               if (_selectedIds.isNotEmpty) {
                  setState(() {
-                  if (isSelected) _selectedIds.remove(voucherNo);
-                  else _selectedIds.add(voucherNo);
+                  if (isSelected) {
+                    _selectedIds.remove(voucherNo);
+                  } else {
+                    _selectedIds.add(voucherNo);
+                  }
                 });
               } else {
                  await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => SmartVoucherScreen(
+                    builder: (context) => const SmartVoucherScreen(
                       voucherType: 'receipt',
-                      voucherNumber: voucherNo,
                     ),
                   ),
                 );

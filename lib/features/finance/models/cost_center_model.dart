@@ -1,42 +1,49 @@
-// [كود محدث] - cost_center_model.dart
+// FileName: lib/features/finance/models/cost_center_model.dart
+
 class CostCenterModel {
-  int? id;
-  String code;
-  String name;
-  String? parentCode;
-  bool isActive;
-  
-  // الحقل الجديد: مجموع المصاريف (حالياً صفر حتى نبني القيود)
-  double balance; 
+  final int id;
+  final String code;
+  final String name;
+  final String? parentCode;
+  final String? type;
+  final double balance;
+  final bool isActive;
 
   CostCenterModel({
-    this.id,
+    required this.id,
     required this.code,
     required this.name,
     this.parentCode,
-    this.isActive = true,
+    this.type,
     this.balance = 0.0,
+    this.isActive = true,
   });
 
   factory CostCenterModel.fromMap(Map<String, dynamic> map) {
     return CostCenterModel(
-      id: map['id'],
-      code: map['code'],
-      name: map['name'],
+      id: map['id'] ?? 0,
+      code: map['code'] ?? '',
+      name: map['name'] ?? '',
       parentCode: map['parent_code'],
+      type: map['type'],
+      balance: (map['balance'] as num?)?.toDouble() ?? 0.0,
       isActive: map['is_active'] ?? true,
-      // لاحقاً سنربط هذا الحقل بجدول العمليات المالية
-      balance: 0.0, 
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'code': code,
       'name': name,
       'parent_code': parentCode,
+      'type': type,
+      'balance': balance,
       'is_active': isActive,
-      // لا نرسل balance للقاعدة لأنه حقل محسوب وليس مخزن
     };
   }
+
+  // For compatibility with older code that might use fromJson/toJson
+  factory CostCenterModel.fromJson(Map<String, dynamic> json) => CostCenterModel.fromMap(json);
+  Map<String, dynamic> toJson() => toMap();
 }

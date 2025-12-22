@@ -67,7 +67,7 @@ class CheckDetailsSection extends StatelessWidget {
           Row(children: [
             Expanded(
               child: DropdownButtonFormField<int>(
-                value: selectedBankId,
+                initialValue: selectedBankId,
                 decoration: const InputDecoration(labelText: 'اسم البنك', isDense: true, border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
                 items: banksList.map((bank) => DropdownMenuItem(value: bank['id'] as int, child: Text(bank['name']))).toList(),
                 onChanged: isReadOnly ? null : onBankChanged, // ✅ تعطيل التغيير

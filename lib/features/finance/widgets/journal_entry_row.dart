@@ -1,164 +1,167 @@
-//journal_entry_row.dart
+// FileName: lib/features/finance/widgets/journal_entry_row.dart
 import 'package:flutter/material.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../models/account_model.dart';
-import '../models/journal_entry_model.dart';
+import '../../../core/models/account.dart';
 import '../models/cost_center_model.dart';
-import '../../../core/constants/app_theme.dart';
+import '../models/journal_entry_model.dart'; // لاستيراد JournalLineModel
 
 class JournalEntryRow extends StatelessWidget {
-  final int index;
-  final JournalEntryLine line;
-  final List<AccountModel> allAccounts;
+  final JournalLineModel line;
+  final List<Account> accounts;
   final List<CostCenterModel> costCenters;
-  final bool canEdit;
-  final VoidCallback onRemove;
-  final VoidCallback onChanged; // لإعلام الأب بتحديث المجاميع
+  final Function(JournalLineModel) onChanged;
+  final VoidCallback onDelete;
 
   const JournalEntryRow({
     super.key,
-    required this.index,
     required this.line,
-    required this.allAccounts,
+    required this.accounts,
     required this.costCenters,
-    required this.canEdit,
-    required this.onRemove,
     required this.onChanged,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    final selectedAcc = line.accountId.isNotEmpty
-        ? allAccounts.firstWhere((a) => a.code == line.accountId, orElse: () => allAccounts.first)
+    // Helper to find selected account safely
+    Account? selectedAccount = accounts.any((a) => a.id == line.accountId) 
+        ? accounts.firstWhere((a) => a.id == line.accountId) 
         : null;
-    bool needsCostCenter = selectedAcc?.requireCostCenter ?? false;
-
-    final inputDecoration = InputDecoration(
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-      filled: true,
-      fillColor: Colors.white,
-    );
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+        color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // 1. الحساب
-        Expanded(
-          flex: 3,
-          child: DropdownSearch<AccountModel>(
-            enabled: canEdit,
-            items: (f, l) => allAccounts,
-            itemAsString: (a) => "${a.code} - ${a.nameAr}",
-            compareFn: (a, b) => a.code == b.code,
-            selectedItem: selectedAcc,
-           onChanged: (a) {
-  // هنا نحن نخزن الكود "1101" في الموديل المؤقت للواجهة
-  // هذا صحيح للعرض، وسنقوم بتحويله لـ ID عند الحفظ
-  line.accountId = a?.code ?? ''; 
-  onChanged();
-},
-            popupProps: const PopupProps.menu(
-              showSearchBox: true,
-              searchFieldProps: TextFieldProps(decoration: InputDecoration(hintText: "بحث...", isDense: true)),
-            ),
-            decoratorProps: DropDownDecoratorProps(
-              decoration: inputDecoration.copyWith(hintText: "اختر الحساب"),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        
-        // 2. البيان ومركز التكلفة
-        Expanded(
-          flex: 3,
-          child: Row(children: [
-            Expanded(
-              flex: needsCostCenter ? 3 : 5,
-              child: TextFormField(
-                initialValue: line.description,
-                readOnly: !canEdit,
-                decoration: inputDecoration.copyWith(hintText: "البيان"),
-                onChanged: (v) {
-                  line.description = v;
-                  // لا نحتاج onChanged هنا لأن البيان لا يؤثر على الحسابات
-                },
-              ),
-            ),
-            if (needsCostCenter) ...[
-              const SizedBox(width: 5),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Account Dropdown
               Expanded(
-                flex: 2,
-                child: Container(
-                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.orange.shade200)),
-                  child: DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    initialValue: line.costCenterId,
-                    decoration: const InputDecoration(hintText: 'م.تكلفة', isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10), prefixIcon: Icon(LucideIcons.network, color: Colors.orange, size: 16)),
-                    items: costCenters.map((cc) => DropdownMenuItem(value: cc.id, child: Text(cc.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: !canEdit ? null : (v) => line.costCenterId = v,
+                flex: 3,
+                child: DropdownSearch<Account>(
+                  items: (f, ls) => accounts, // Simple list return for DropdownSearch v9+
+                  itemAsString: (a) => "${a.code} - ${a.nameAr}",
+                  compareFn: (i, s) => i.id == s?.id,
+                  selectedItem: selectedAccount,
+                  onChanged: (val) {
+                    if (val != null) {
+                      onChanged(JournalLineModel(
+                        id: line.id,
+                        accountId: val.id,
+                        accountName: val.nameAr,
+                        debit: line.debit,
+                        credit: line.credit,
+                        description: line.description,
+                        costCenterId: line.costCenterId,
+                      ));
+                    }
+                  },
+                  popupProps: const PopupProps.menu(
+                    showSearchBox: true,
+                    searchFieldProps: TextFieldProps(decoration: InputDecoration(hintText: "بحث...", isDense: true)),
+                  ),
+                  decoratorProps: const DropDownDecoratorProps(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      isDense: true,
+                    ),
                   ),
                 ),
               ),
-            ]
-          ]),
-        ),
-        const SizedBox(width: 8),
-        
-        // 3. المدين
-        Expanded(
-          flex: 1,
-          child: TextFormField(
-            initialValue: line.debit == 0 ? '' : line.debit.toString(),
-            readOnly: !canEdit,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: inputDecoration.copyWith(hintText: "0.0"),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-            onChanged: (v) {
-              line.debit = double.tryParse(v) ?? 0;
-              if (line.debit > 0) line.credit = 0; // تصفير الجانب الآخر
-              onChanged();
-            },
+              const SizedBox(width: 8),
+
+              // 2. Debit
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  initialValue: line.debit?.toString() ?? '',
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, hintText: '0.0'),
+                  onChanged: (val) {
+                    onChanged(JournalLineModel(
+                      id: line.id,
+                      accountId: line.accountId,
+                      debit: double.tryParse(val) ?? 0.0,
+                      credit: 0.0, // تصفير الطرف الآخر
+                      description: line.description,
+                      costCenterId: line.costCenterId,
+                    ));
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // 3. Credit
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  initialValue: line.credit?.toString() ?? '',
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true, hintText: '0.0'),
+                  onChanged: (val) {
+                    onChanged(JournalLineModel(
+                      id: line.id,
+                      accountId: line.accountId,
+                      debit: 0.0, // تصفير الطرف الآخر
+                      credit: double.tryParse(val) ?? 0.0,
+                      description: line.description,
+                      costCenterId: line.costCenterId,
+                    ));
+                  },
+                ),
+              ),
+              
+              // 4. Delete Button
+              IconButton(
+                icon: const Icon(LucideIcons.trash2, color: Colors.red, size: 20),
+                onPressed: onDelete,
+              ),
+            ],
           ),
-        ),
-        const SizedBox(width: 8),
-        
-        // 4. الدائن
-        Expanded(
-          flex: 1,
-          child: TextFormField(
-            initialValue: line.credit == 0 ? '' : line.credit.toString(),
-            readOnly: !canEdit,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: inputDecoration.copyWith(hintText: "0.0"),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-            onChanged: (v) {
-              line.credit = double.tryParse(v) ?? 0;
-              if (line.credit > 0) line.debit = 0; // تصفير الجانب الآخر
-              onChanged();
-            },
-          ),
-        ),
-        
-        // 5. زر الحذف
-        if (canEdit)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: IconButton(
-              icon: const Icon(LucideIcons.minusCircle, color: Colors.red, size: 22),
-              onPressed: onRemove,
-            ),
-          ),
-      ]),
+          
+          // Row 2: Description & Cost Center (Optional)
+          if (selectedAccount != null && selectedAccount.requireCostCenter)
+             Padding(
+               padding: const EdgeInsets.only(top: 8.0),
+               child: Row(
+                 children: [
+                   Expanded(
+                     child: TextFormField(
+                       initialValue: line.description,
+                       decoration: const InputDecoration(labelText: "بيان السطر", isDense: true, border: OutlineInputBorder()),
+                       onChanged: (val) {
+                          onChanged(JournalLineModel(
+                            id: line.id, accountId: line.accountId, debit: line.debit, credit: line.credit,
+                            description: val, costCenterId: line.costCenterId
+                          ));
+                       },
+                     ),
+                   ),
+                   const SizedBox(width: 10),
+                   Expanded(
+                     child: DropdownButtonFormField<int>(
+                       value: line.costCenterId,
+                       decoration: const InputDecoration(labelText: "مركز التكلفة", isDense: true, border: OutlineInputBorder()),
+                       items: costCenters.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                       onChanged: (val) {
+                          onChanged(JournalLineModel(
+                            id: line.id, accountId: line.accountId, debit: line.debit, credit: line.credit,
+                            description: line.description, costCenterId: val
+                          ));
+                       },
+                     ),
+                   ),
+                 ],
+               ),
+             )
+        ],
+      ),
     );
   }
 }

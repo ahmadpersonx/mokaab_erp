@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:dropdown_search/dropdown_search.dart';
-import '../models/account_model.dart';
+import '../../../core/models/account.dart';
 
 class SmartVoucherHeader extends StatelessWidget {
   final DateTime date;
   final String paymentMethod;
-  final AccountModel? treasuryAccount;
-  final List<AccountModel> treasuryAccountsList;
+  final Account? treasuryAccount;
+  final List<Account> treasuryAccountsList;
   final String voucherType;
   final Color themeColor;
   
@@ -18,7 +18,7 @@ class SmartVoucherHeader extends StatelessWidget {
 
   final Function(DateTime) onDateChanged;
   final Function(String?) onPaymentMethodChanged;
-  final Function(AccountModel?) onTreasuryAccountChanged;
+  final Function(Account?) onTreasuryAccountChanged;
 
   const SmartVoucherHeader({
     super.key,
@@ -64,7 +64,7 @@ class SmartVoucherHeader extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: paymentMethod,
+                initialValue: paymentMethod,
                 decoration: const InputDecoration(labelText: 'طريقة الدفع', border: OutlineInputBorder(), isDense: true, contentPadding: EdgeInsets.all(10)),
                 items: const [
                   DropdownMenuItem(value: 'cash', child: Text('نقدي')),
@@ -77,12 +77,12 @@ class SmartVoucherHeader extends StatelessWidget {
             ),
           ]),
           const SizedBox(height: 12),
-          DropdownSearch<AccountModel>(
+          DropdownSearch<Account>(
             // ✅ 5. تعطيل البحث والاختيار
             enabled: !isReadOnly, 
             items: (f, l) => treasuryAccountsList,
-            itemAsString: (a) => "${a.code} - ${a.nameAr}",
-            compareFn: (item, selectedItem) => item.code == selectedItem.code,
+            itemAsString: (a) => "${a.code} - ${a.nameAr ?? ''}",
+            compareFn: (item, selectedItem) => item.code == selectedItem?.code,
             selectedItem: treasuryAccount,
             onChanged: onTreasuryAccountChanged,
             decoratorProps: DropDownDecoratorProps(

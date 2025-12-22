@@ -11,12 +11,12 @@ mixin SystemDefinitionsService on FinanceBase {
   // ==========================================
   // 10. نظام التعريفات العامة (General Definitions)
   // ==========================================
-  Future<List<DefinitionModel>> getDefinitions(String type, {int? parentId}) async {
+  Future<List<DefinitionModel>> getDefinitions(String definitionType, {int? parentId}) async {
     try {
       var query = supabase
           .from('system_definitions')
           .select()
-          .eq('type', type)
+          .eq('type', definitionType)
           .eq('is_active', true);
 
       if (parentId != null) {
@@ -24,17 +24,16 @@ mixin SystemDefinitionsService on FinanceBase {
       }
 
       final response = await query.order('name_ar', ascending: true);
-      return (response as List).map((e) => DefinitionModel.fromMap(e)).toList();
+      return (response as List).map((e) => DefinitionModel.fromJson(e)).toList();
     } catch (e) {
-      debugPrint("Error fetching definitions ($type): $e");
+      debugPrint("Error fetching definitions ($definitionType): $e");
       return [];
     }
   }
 
   Future<void> addDefinition(DefinitionModel definition) async {
     try {
-      final data = definition.toMap();
-      data.remove('id'); 
+      final data = definition.toJson();
       await supabase.from('system_definitions').insert(data);
     } catch (e) {
       debugPrint("Error adding definition: $e");
@@ -44,7 +43,7 @@ mixin SystemDefinitionsService on FinanceBase {
 
   Future<void> updateDefinition(DefinitionModel definition) async {
     try {
-      final data = definition.toMap();
+      final data = definition.toJson();
       await supabase.from('system_definitions').update(data).eq('id', definition.id);
     } catch (e) {
       debugPrint("Error updating definition: $e");

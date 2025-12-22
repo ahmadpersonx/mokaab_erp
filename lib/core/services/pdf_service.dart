@@ -113,8 +113,8 @@ class PdfService {
               pw.Table.fromTextArray(
                 headers: ['مدين', 'دائن', 'الحساب', 'البيان', 'م.تكلفة'],
                 data: entry.lines.map((l) => [
-                  l.debit.toStringAsFixed(2),
-                  l.credit.toStringAsFixed(2),
+                  (l.debit ?? 0.0).toStringAsFixed(2),
+                  (l.credit ?? 0.0).toStringAsFixed(2),
                   l.accountId,
                   l.description,
                   l.costCenterId?.toString() ?? '',

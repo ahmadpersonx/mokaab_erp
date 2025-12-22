@@ -1,231 +1,246 @@
-//cost_centers_screen.dart
+// FileName: lib/features/finance/screens/cost_centers_screen.dart
+// Revision: 5.0 (Full Fix: Compatible with new Model & Service)
+// Date: 2025-12-20
 
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../../../core/constants/app_theme.dart';
 import '../models/cost_center_model.dart';
-import '../../../core/constants/app_theme.dart';
-import '../services/cost_center_service.dart'; // <--- هذا هو السطر المهم
+import '../services/finance_service.dart';
 
 class CostCentersScreen extends StatefulWidget {
-  final CostCenterModel? parentCenter;
-  const CostCentersScreen({super.key, this.parentCenter});
+  const CostCentersScreen({super.key});
 
   @override
   State<CostCentersScreen> createState() => _CostCentersScreenState();
 }
 
 class _CostCentersScreenState extends State<CostCentersScreen> {
-  // هنا كان الخطأ، النظام لم يكن يعرف ما هو CostCenterService
-  final CostCenterService _service = CostCenterService(); 
+  final FinanceService _service = FinanceService();
+  final _formKey = GlobalKey<FormState>();
 
-  // ... (باقي الكود كما هو) ...
-  // لتوفير المساحة، تأكد أن باقي الكود موجود
-  // (دوال _generateAutoCode, _showCenterDialog, build...)
-  
-  // إذا كنت قد فقدت الكود، أخبرني لأرسله لك كاملاً مرة أخرى.
-  
-  String _generateAutoCode() {
-    String number = Random().nextInt(9999).toString().padLeft(4, '0');
-    if (widget.parentCenter != null) {
-      return '${widget.parentCenter!.code}-$number'; 
-    }
-    return 'C-$number';
+  List<CostCenterModel> _costCenters = [];
+  bool _isLoading = true;
+
+  // Controllers for Dialog
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  String _selectedType = 'general'; // general, project, department
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
   }
 
-  void _refresh() => setState(() {});
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await _service.getAllCostCenters();
+      if (mounted) {
+        setState(() {
+          _costCenters = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading cost centers: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-  void _showCenterDialog({CostCenterModel? centerToEdit}) {
-    final codeController = TextEditingController(text: centerToEdit?.code ?? _generateAutoCode());
-    final nameController = TextEditingController(text: centerToEdit?.name);
+  void _showAddEditDialog({CostCenterModel? center}) {
+    final isEditing = center != null;
+    
+    // تعيين القيم في حال التعديل
+    if (isEditing) {
+      _codeController.text = center.code;
+      _nameController.text = center.name;
+      _selectedType = center.type ?? 'general';
+    } else {
+      _codeController.clear();
+      _nameController.clear();
+      _selectedType = 'general';
+    }
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(centerToEdit == null 
-              ? (widget.parentCenter == null ? 'إضافة مركز رئيسي' : 'إضافة فرع لـ ${widget.parentCenter!.name}')
-              : 'تعديل المركز'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController, 
-                decoration: const InputDecoration(labelText: 'اسم المركز', border: OutlineInputBorder())
-              ),
-              const SizedBox(height: 15),
-              TextField(
-                controller: codeController,
-                readOnly: true, 
-                decoration: InputDecoration(
-                  labelText: 'الكود', 
-                  filled: true, 
-                  fillColor: Colors.grey.shade200, 
-                  border: const OutlineInputBorder()
+      builder: (ctx) => AlertDialog(
+        title: Text(isEditing ? "تعديل مركز تكلفة" : "إضافة مركز تكلفة"),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _codeController,
+                  decoration: const InputDecoration(
+                    labelText: "رمز المركز",
+                    prefixIcon: Icon(LucideIcons.hash),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) => val!.isEmpty ? "مطلوب" : null,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: "اسم المركز",
+                    prefixIcon: Icon(LucideIcons.type),
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (val) => val!.isEmpty ? "مطلوب" : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedType,
+                  decoration: const InputDecoration(
+                    labelText: "نوع المركز",
+                    prefixIcon: Icon(LucideIcons.layers),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'general', child: Text("عام")),
+                    DropdownMenuItem(value: 'project', child: Text("مشروع")),
+                    DropdownMenuItem(value: 'department', child: Text("قسم إداري")),
+                  ],
+                  onChanged: (val) => setState(() => _selectedType = val!),
+                ),
+              ],
+            ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () async {
-                if (codeController.text.isNotEmpty && nameController.text.isNotEmpty) {
-                  if (centerToEdit == null) {
-                    await _service.addCostCenter(CostCenterModel(
-                      code: codeController.text,
-                      name: nameController.text,
-                      parentCode: widget.parentCenter?.code, 
-                    ));
-                  } else {
-                    await _service.updateCostCenter(centerToEdit.id!, nameController.text, codeController.text);
-                  }
-                  if (mounted) {
-                    Navigator.pop(context);
-                    _refresh();
-                  }
-                }
-              },
-              child: const Text('حفظ'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String title = widget.parentCenter == null ? 'مراكز التكلفة الرئيسية' : widget.parentCenter!.name;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title), centerTitle: true),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCenterDialog(), 
-        child: const Icon(Icons.add),
-      ),
-      body: Column(
-        children: [
-          if (widget.parentCenter != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              color: AppTheme.kLightBeige.withOpacity(0.2),
-              child: Row(
-                children: [
-                  const Icon(Icons.folder_open, color: AppTheme.kDarkBrown),
-                  const SizedBox(width: 8),
-                  Text('أنت داخل: ${widget.parentCenter!.name}', 
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.kDarkBrown)),
-                ],
-              ),
-            ),
-          Expanded(
-            child: FutureBuilder<List<CostCenterModel>>(
-              future: _service.getCostCentersByParent(widget.parentCenter?.code),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(widget.parentCenter == null ? Icons.domain : Icons.folder_off, size: 60, color: Colors.grey.shade300),
-                        const SizedBox(height: 10),
-                        const Text('لا توجد مراكز هنا', style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: snapshot.data!.length,
-                  separatorBuilder: (ctx, i) => const SizedBox(height: 8),
-                  itemBuilder: (ctx, i) => _buildCenterCard(snapshot.data![i]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("إلغاء", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.kDarkBrown, foregroundColor: Colors.white),
+            onPressed: () async {
+              if (_formKey.currentState!.validate()) {
+                // ✅ إنشاء الموديل بالبيانات الصحيحة والمتوافقة
+                final newCenter = CostCenterModel(
+                  id: center?.id ?? 0, // 0 للإضافة الجديدة (الباك إند سيولد الرقم)
+                  code: _codeController.text,
+                  name: _nameController.text,
+                  type: _selectedType,
+                  balance: center?.balance ?? 0.0,
                 );
-              },
-            ),
+
+                try {
+                  Navigator.pop(ctx); // إغلاق الديالوج
+                  setState(() => _isLoading = true);
+
+                  if (isEditing) {
+                    // تحديث مباشر
+                    await _service.supabase
+                        .from('cost_centers')
+                        .update(newCenter.toJson())
+                        .eq('id', newCenter.id);
+                  } else {
+                    // إضافة مباشرة (نحذف الـ id ليتم توليده تلقائياً)
+                    final data = newCenter.toJson();
+                    data.remove('id'); 
+                    await _service.supabase
+                        .from('cost_centers')
+                        .insert(data);
+                  }
+                  
+                  await _loadData(); // تحديث القائمة
+                  
+                } catch (e) {
+                  debugPrint("Error saving: $e");
+                  if (mounted) {
+                    setState(() => _isLoading = false);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("خطأ: $e"), backgroundColor: Colors.red));
+                  }
+                }
+              }
+            },
+            child: Text(isEditing ? "تحديث" : "حفظ"),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCenterCard(CostCenterModel item) {
-    return FutureBuilder<bool>(
-      future: _service.hasChildren(item.code),
-      builder: (context, snapshot) {
-        bool hasChildren = snapshot.data ?? false;
-
-        return Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: hasChildren ? AppTheme.kDarkBrown : Colors.grey.shade200,
-              child: Icon(
-                hasChildren ? Icons.folder : Icons.description, 
-                color: hasChildren ? AppTheme.kLightBeige : Colors.grey.shade600
-              ),
-            ),
-            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text(item.code, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Text(
-                    '${item.balance.toStringAsFixed(2)} د.أ', 
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 13),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => CostCentersScreen(parentCenter: item)),
-              ).then((_) => _refresh());
-            },
-            onLongPress: () {
-              showModalBottomSheet(
-                context: context,
-                builder: (context) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.edit, color: Colors.blue),
-                      title: const Text('تعديل الاسم'),
-                      onTap: () { Navigator.pop(context); _showCenterDialog(centerToEdit: item); },
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.delete, color: Colors.red),
-                      title: const Text('حذف المركز'),
-                      onTap: () async {
-                         Navigator.pop(context);
-                         if (hasChildren) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا يمكن حذف مركز يحتوي على فروع')));
-                         } else {
-                            await _service.deleteCostCenter(item.id!);
-                            _refresh();
-                         }
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
+  Future<void> _deleteCenter(int id) async {
+    try {
+      await _service.supabase.from('cost_centers').delete().eq('id', id);
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("تم الحذف بنجاح"), backgroundColor: Colors.green));
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("فشل الحذف، قد يكون المركز مرتبطاً بقيود"), backgroundColor: Colors.red));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("مراكز التكلفة"),
+        backgroundColor: AppTheme.kDarkBrown,
+        foregroundColor: Colors.white,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEditDialog(),
+        backgroundColor: AppTheme.kDarkBrown,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _costCenters.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.network, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text("لا توجد مراكز تكلفة معرفة", style: TextStyle(color: Colors.grey.shade600)),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _costCenters.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final center = _costCenters[index];
+                    return Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(LucideIcons.network, color: Colors.orange.shade800),
+                        ),
+                        title: Text("${center.name} (${center.code})", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("النوع: ${center.type ?? 'عام'} | الرصيد: ${center.balance}"),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(LucideIcons.edit3, size: 20, color: Colors.blueGrey),
+                              onPressed: () => _showAddEditDialog(center: center),
+                            ),
+                            IconButton(
+                              icon: const Icon(LucideIcons.trash2, size: 20, color: Colors.redAccent),
+                              onPressed: () => _deleteCenter(center.id),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

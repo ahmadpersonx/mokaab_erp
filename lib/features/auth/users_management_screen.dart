@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../core/constants/app_theme.dart';
 import '../finance/services/finance_service.dart';
 
 // استدعاء المكونات

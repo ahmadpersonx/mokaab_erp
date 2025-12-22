@@ -4,15 +4,15 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 
 // ✅✅✅ تصحيح المسارات (3 خطوات للخلف بدلاً من 2)
-import '../models/account_model.dart';
+import '../../../core/models/account.dart';
 import '../models/cost_center_model.dart';
 
 class VoucherLinesList extends StatelessWidget {
   final List<Map<String, dynamic>> lines;
-  final List<AccountModel> accountsList;
+  final List<Account> accountsList;
   final List<CostCenterModel> costCentersList;
   final bool isReadOnly; 
-  final Function(int, AccountModel?) onAccountChanged;
+  final Function(int, Account?) onAccountChanged;
   final Function(int, String) onAmountChanged;
   final Function(int, CostCenterModel?) onCostCenterChanged;
   final Function(int) onDeleteLine;
@@ -63,11 +63,11 @@ class VoucherLinesList extends StatelessWidget {
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
           flex: 3,
-          child: DropdownSearch<AccountModel>(
+          child: DropdownSearch<Account>(
             enabled: !isReadOnly, 
             items: (f, l) => accountsList,
-            itemAsString: (a) => a.nameAr,
-            compareFn: (item, selectedItem) => item.code == selectedItem.code,
+            itemAsString: (a) => a.nameAr ?? '',
+            compareFn: (item, selectedItem) => item.code == selectedItem?.code,
             selectedItem: lines[i]['account'],
             onChanged: (val) => onAccountChanged(i, val),
             popupProps: const PopupProps.menu(showSearchBox: true),
@@ -89,7 +89,7 @@ class VoucherLinesList extends StatelessWidget {
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<CostCenterModel>(
-            value: lines[i]['cost_center'],
+            initialValue: lines[i]['cost_center'],
             items: costCentersList.map((c) => DropdownMenuItem(value: c, child: Text(c.name, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis))).toList(),
             onChanged: isReadOnly ? null : (v) => onCostCenterChanged(i, v), 
             decoration: const InputDecoration(isDense: true, border: OutlineInputBorder(), hintText: "بلا", contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12)),

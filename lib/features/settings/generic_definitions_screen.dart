@@ -186,8 +186,11 @@ class _GenericDefinitionsScreenState extends State<GenericDefinitionsScreen> {
                   );
 
                   try {
-                    if (isEditing) await _service.updateDefinition(newItem);
-                    else await _service.addDefinition(newItem);
+                    if (isEditing) {
+                      await _service.updateDefinition(newItem);
+                    } else {
+                      await _service.addDefinition(newItem);
+                    }
                     
                     if (mounted) {
                       Navigator.pop(context);

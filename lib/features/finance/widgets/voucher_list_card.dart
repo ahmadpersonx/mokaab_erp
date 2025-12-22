@@ -1,36 +1,38 @@
-// File: lib/features/finance/widgets/receipt_bond_card.dart
+// File: lib/features/finance/widgets/voucher_list_card.dart
+// Description: A generic card for displaying any voucher (Receipt/Payment).
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-class ReceiptBondCard extends StatelessWidget {
-  final Map<String, dynamic> bond;
+class VoucherListCard extends StatelessWidget {
+  final Map<String, dynamic> voucher;
   final bool isSelected;
   final bool selectionMode;
+  final String voucherType; // 'receipt' or 'payment'
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final VoidCallback onEdit;
-  final VoidCallback onPrint;
 
-  const ReceiptBondCard({
+  const VoucherListCard({
     super.key,
-    required this.bond,
+    required this.voucher,
     required this.isSelected,
     required this.selectionMode,
+    required this.voucherType,
     required this.onTap,
     required this.onLongPress,
-    required this.onEdit,
-    required this.onPrint,
   });
 
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(symbol: 'د.أ ', decimalDigits: 2);
-    final amount = (bond['amount'] as num?)?.toDouble() ?? 0.0;
+    final amount = (voucher['amount'] as num?)?.toDouble() ?? 0.0;
     
-    // استخراج اسم الحساب من السطور (عادة السطر الأول هو المدين/العميل في سند القبض)
-    // ملاحظة: قد يختلف الهيكل حسب الـ JSON القادم من الباك اند
-    final lines = bond['voucher_lines'] as List? ?? [];
+    // تحديد اللون بناءً على النوع
+    final Color typeColor = voucherType == 'receipt' ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
+    final Color bgColor = voucherType == 'receipt' ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
+
+    final lines = voucher['voucher_lines'] as List? ?? [];
     final accountName = lines.isNotEmpty && lines[0]['accounts'] != null
         ? lines[0]['accounts']['name_ar']
         : 'حساب غير محدد';
@@ -42,10 +44,10 @@ class ReceiptBondCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE8F5E9) : Colors.white,
+          color: isSelected ? bgColor : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.green : Colors.grey.shade200,
+            color: isSelected ? typeColor : Colors.grey.shade200,
             width: isSelected ? 1.5 : 1,
           ),
           boxShadow: [
@@ -61,22 +63,18 @@ class ReceiptBondCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // --- السطر الأول: الرقم والتاريخ والمبلغ ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      // أيقونة التحديد (تظهر فقط عند التحديد)
                       if (selectionMode)
                         Icon(
                           isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                          color: isSelected ? Colors.green : Colors.grey,
+                          color: isSelected ? typeColor : Colors.grey,
                           size: 20,
                         ),
                       if (selectionMode) const SizedBox(width: 8),
-                      
-                      // رقم السند
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -84,64 +82,52 @@ class ReceiptBondCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          "#${bond['voucher_number']}",
+                          "#${voucher['voucher_number']}",
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                         ),
                       ),
                     ],
                   ),
-
-                  // المبلغ (باللون الأخضر لأنه قبض)
                   Text(
                     currencyFormat.format(amount),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Color(0xFF2E7D32), // Green 800
+                      color: typeColor,
                     ),
                   ),
                 ],
               ),
-              
               const SizedBox(height: 12),
-
-              // --- السطر الثاني: اسم الحساب ---
               Row(
                 children: [
                   const Icon(LucideIcons.user, size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
-                  Text(
-                    accountName,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
+                  Text(accountName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ],
               ),
-
               const SizedBox(height: 8),
-
-              // --- السطر الثالث: البيان + التاريخ ---
               Row(
                 children: [
-                  const Icon(LucideIcons.fileText, size: 16, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      bond['description'] ?? 'لا يوجد بيان',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  const Icon(LucideIcons.calendar, size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
                   Text(
-                    bond['date'].toString().split(' ')[0],
+                    voucher['date'].toString().split(' ')[0],
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                   ),
+                  const Spacer(),
+                  if (voucher['description'] != null)
+                    Expanded(
+                      child: Text(
+                        voucher['description'],
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
                 ],
               ),
-
-              // --- أزرار الإجراءات السريعة (تظهر عند فتح البطاقة فقط، سننفذها لاحقاً في Details) ---
-              // هنا سنكتفي بالعرض، والتفاعل عند الضغط يفتح التفاصيل
             ],
           ),
         ),

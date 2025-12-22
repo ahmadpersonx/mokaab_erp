@@ -108,8 +108,8 @@ class AppTheme {
       ),
 
       dataTableTheme: DataTableThemeData(
-        headingRowColor: MaterialStateProperty.all(kOffWhite),
-        dataRowColor: MaterialStateProperty.all(kWhite),
+        headingRowColor: WidgetStateProperty.all(kOffWhite),
+        dataRowColor: WidgetStateProperty.all(kWhite),
         headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: kDarkBrown),
         dataTextStyle: const TextStyle(color: kDarkBrown),
         dividerThickness: 0.5,
@@ -122,14 +122,14 @@ class AppTheme {
       // إعداد القائمة المنسدلة (M3 DropdownMenu)
       dropdownMenuTheme: DropdownMenuThemeData(
         menuStyle: MenuStyle(
-          backgroundColor: MaterialStateProperty.all(kWhite),
-          surfaceTintColor: MaterialStateProperty.all(kWhite),
-          elevation: MaterialStateProperty.all(4),
-          shape: MaterialStateProperty.all(
+          backgroundColor: WidgetStateProperty.all(kWhite),
+          surfaceTintColor: WidgetStateProperty.all(kWhite),
+          elevation: WidgetStateProperty.all(4),
+          shape: WidgetStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           // التحكم في الحد الأقصى للارتفاع لضمان عدم تغطية الشاشة بالكامل
-          maximumSize: MaterialStateProperty.all(const Size(double.infinity, 300)), 
+          maximumSize: WidgetStateProperty.all(const Size(double.infinity, 300)), 
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,

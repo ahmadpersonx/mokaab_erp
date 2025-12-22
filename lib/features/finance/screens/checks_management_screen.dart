@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/app_theme.dart';
 import '../services/finance_service.dart';
@@ -33,8 +32,8 @@ class _ChecksManagementScreenState extends State<ChecksManagementScreen> with Si
   Future<void> _loadChecks() async {
     setState(() => _isLoading = true);
     try {
-      final incoming = await _service.getChecks(type: 'receipt');
-      final outgoing = await _service.getChecks(type: 'payment');
+      final incoming = await _service.getChecks(status: 'pending');
+      final outgoing = await _service.getChecks(status: 'collected');
       if (mounted) {
         setState(() {
           _incomingChecks = incoming;

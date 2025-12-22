@@ -2,7 +2,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'finance_base.dart';
-import 'finance_service.dart';
 
 mixin FinanceAuthService on FinanceBase {
   // قائمة لتخزين صلاحيات المستخدم المسجل حالياً

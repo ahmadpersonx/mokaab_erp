@@ -1,104 +1,96 @@
-// [كود مصحح نهائي] - journal_entry_model.dart
-class JournalEntryLine {
-  int? id;
-  int? journalEntryId;
-  String accountId;
-  int? costCenterId;
-  String description;
-  double debit;
-  double credit;
-  String? accountName;
-  String? costCenterName;
-
-  JournalEntryLine({
-    this.id,
-    this.journalEntryId,
-    required this.accountId,
-    this.costCenterId,
-    this.description = '',
-    this.debit = 0.0,
-    this.credit = 0.0,
-    this.accountName,
-    this.costCenterName,
-  });
-
-  factory JournalEntryLine.fromMap(Map<String, dynamic> map) {
-    final accountMap = map['accounts'] as Map<String, dynamic>?;
-    final costCenterMap = map['cost_centers'] as Map<String, dynamic>?;
-
-    return JournalEntryLine(
-      id: map['id'],
-      journalEntryId: map['journal_entry_id'],
-      accountId: map['account_id'] ?? '',
-      costCenterId: map['cost_center_id'],
-      description: map['description'] ?? '',
-      debit: (map['debit'] ?? 0.0).toDouble(),
-      credit: (map['credit'] ?? 0.0).toDouble(),
-      accountName: accountMap?['name_ar'],
-      costCenterName: costCenterMap?['name'],
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'account_id': accountId,
-      'cost_center_id': costCenterId,
-      'description': description,
-      'debit': debit,
-      'credit': credit,
-    };
-  }
-}
+// FileName: lib/features/finance/models/journal_entry_model.dart
 
 class JournalEntryModel {
-  int? id;
-  String entryNumber;
-  DateTime entryDate;
-  String? reference;
-  String? description;
-  String status;
-  List<JournalEntryLine> lines;
+  final int id;
+  final String entryNumber;
+  final DateTime entryDate;
+  final String? reference;
+  final String? description;
+  final String status; // 'draft', 'posted', 'void'
+  final double totalDebit;
+  final double totalCredit;
+  final List<JournalLineModel> lines;
 
   JournalEntryModel({
-    this.id,
+    required this.id,
     required this.entryNumber,
     required this.entryDate,
     this.reference,
     this.description,
-    this.status = 'posted',
+    this.status = 'draft',
+    this.totalDebit = 0.0,
+    this.totalCredit = 0.0,
     this.lines = const [],
   });
 
-  factory JournalEntryModel.fromMap(Map<String, dynamic> map) {
-    final linesData = map['journal_entry_lines'];
-    List<JournalEntryLine> parsedLines = [];
-    if (linesData is List) {
-      parsedLines = linesData.map((e) {
-        if (e is Map<String, dynamic>) {
-          return JournalEntryLine.fromMap(e);
-        } else {
-          return e as JournalEntryLine;
-        }
-      }).toList();
-    }
+  factory JournalEntryModel.fromJson(Map<String, dynamic> json) {
+    var linesList = (json['journal_lines'] as List?)
+            ?.map((e) => JournalLineModel.fromJson(e))
+            .toList() ??
+        [];
+
     return JournalEntryModel(
-      id: map['id'],
-      entryNumber: map['entry_number'] ?? '',
-      entryDate: map['entry_date'] is String 
-          ? DateTime.parse(map['entry_date']) 
-          : map['entry_date'] as DateTime,
-      reference: map['reference'],
-      description: map['description'],
-      status: map['status'] ?? 'posted',
-      lines: parsedLines,
+      id: json['id'] ?? 0,
+      entryNumber: json['entry_number'] ?? '',
+      entryDate: DateTime.parse(json['entry_date']),
+      reference: json['reference'],
+      description: json['description'],
+      status: json['status'] ?? 'draft',
+      totalDebit: (linesList.fold(0.0, (sum, item) => sum + (item.debit ?? 0.0))),
+      totalCredit: (linesList.fold(0.0, (sum, item) => sum + (item.credit ?? 0.0))),
+      lines: linesList,
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'entry_number': entryNumber,
-    'entry_date': entryDate.toIso8601String(),
-    'reference': reference,
-    'description': description,
-    'status': status,
-  };
+  Map<String, dynamic> toJson() {
+    return {
+      'entry_number': entryNumber,
+      'entry_date': entryDate.toIso8601String(),
+      'reference': reference,
+      'description': description,
+      'status': status,
+    };
+  }
+}
+
+class JournalLineModel {
+  final int id;
+  final int accountId;
+  final String? accountName; // For display purposes
+  final int? costCenterId;
+  final String? description;
+  final double? debit;
+  final double? credit;
+
+  JournalLineModel({
+    required this.id,
+    required this.accountId,
+    this.accountName,
+    this.costCenterId,
+    this.description,
+    this.debit,
+    this.credit,
+  });
+
+  factory JournalLineModel.fromJson(Map<String, dynamic> json) {
+    return JournalLineModel(
+      id: json['id'] ?? 0,
+      accountId: json['account_id'] ?? 0,
+      // accountName might need to be fetched separately or joined
+      costCenterId: json['cost_center_id'],
+      description: json['description'],
+      debit: (json['debit'] as num?)?.toDouble(),
+      credit: (json['credit'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'account_id': accountId,
+      'cost_center_id': costCenterId,
+      'description': description,
+      'debit': debit ?? 0.0,
+      'credit': credit ?? 0.0,
+    };
+  }
 }

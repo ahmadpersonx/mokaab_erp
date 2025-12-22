@@ -228,7 +228,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> with SingleTicker
                     children: [
                       SwitchListTile(
                         value: isSelected,
-                        activeColor: Colors.blue, // لون السويتش الأزرق كما في الصورة
+                        activeThumbColor: Colors.blue, // لون السويتش الأزرق كما في الصورة
                         onChanged: (val) {
                           setState(() {
                             if (val) {

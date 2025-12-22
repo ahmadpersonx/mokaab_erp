@@ -1,196 +1,109 @@
 // FileName: lib/core/services/excel_service.dart
-// Revision: 4.0 (Merged All Excel Functions)
+// Revision: 3.0 (Final Fix: Compatible with new AccountModel)
 
 import 'dart:io';
 import 'package:excel/excel.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart'; 
-import '../../features/finance/models/account_model.dart';
+// الاستيراد الصحيح للموديل
+import '../models/account.dart';
 import '../../features/finance/services/finance_service.dart';
 
 class ExcelService {
   final FinanceService _financeService = FinanceService();
 
-  // ============================================================
-  // 1. الوظيفة الجديدة: تصدير كشف الحساب (لحل مشكلة الشاشة)
-  // ============================================================
-  Future<void> exportAccountStatement({
-    required String accountName,
-    required String accountCode,
-    required DateTime fromDate,
-    required DateTime toDate,
-    required List<Map<String, dynamic>> transactions,
-    required double totalDebit,
-    required double totalCredit,
-    required double finalBalance,
-  }) async {
-    try {
-      var excel = Excel.createExcel();
-      // استخدام الورقة الافتراضية بدلاً من البحث بالاسم لتجنب الأخطاء
-      Sheet sheetObject = excel[excel.getDefaultSheet()!];
-
-      final DateFormat df = DateFormat('yyyy-MM-dd');
-
-      // إضافة الترويسة
-      sheetObject.appendRow([TextCellValue("كشف حساب: $accountName ($accountCode)")]);
-      sheetObject.appendRow([TextCellValue("من: ${df.format(fromDate)} إلى: ${df.format(toDate)}")]);
-      sheetObject.appendRow([]); // سطر فارغ
-
-      // عناوين الجدول
-      List<String> headers = ["التاريخ", "رقم القيد", "البيان", "مدين", "دائن", "الرصيد"];
-      sheetObject.appendRow(headers.map((e) => TextCellValue(e)).toList());
-
-      // إضافة البيانات
-      for (var trans in transactions) {
-        sheetObject.appendRow([
-          TextCellValue(df.format(DateTime.parse(trans['date']))),
-          TextCellValue(trans['id'].toString()),
-          TextCellValue(trans['description'] ?? ''),
-          DoubleCellValue((trans['debit'] as num).toDouble()),
-          DoubleCellValue((trans['credit'] as num).toDouble()),
-          DoubleCellValue((trans['running_balance'] as num).toDouble()),
-        ]);
-      }
-
-      // إضافة المجموع
-      sheetObject.appendRow([]);
-      sheetObject.appendRow([
-        TextCellValue("الإجماليات"),
-        TextCellValue(""),
-        TextCellValue(""),
-        DoubleCellValue(totalDebit),
-        DoubleCellValue(totalCredit),
-        DoubleCellValue(finalBalance),
-      ]);
-
-      await _saveExcelFile(excel, "Statement_$accountCode");
-    } catch (e) {
-      debugPrint("Export Error: $e");
-      rethrow; 
-    }
-  }
-
-  // ============================================================
-  // 2. الوظيفة القديمة: تصدير شجرة الحسابات (مع تحسينات)
-  // ============================================================
-  Future<String> exportAccountsToExcel(List<AccountModel> accounts) async {
+  Future<void> exportAccounts(List<Account> accounts) async {
     var excel = Excel.createExcel();
-    Sheet sheet = excel['ChartOfAccounts'];
+    Sheet sheetObject = excel['Accounts'];
     
-    // عناوين الأعمدة
+    // تحديث العناوين لتشمل جميع الحقول
     List<String> headers = [
-      'Code', 'Name (AR)', 'Parent Code', 'Nature', 
-      'Is Parent', 'Level', 'Require Cost Center', 'Is Contra', 'Current Balance'
+      'الرمز', 'الاسم (عربي)', 'الاسم (انجليزي)', 'النوع', 'المستوى', 'الرصيد',
+      'رمز الأب', 'الطبيعة', 'حساب أب', 'يتطلب مركز تكلفة', 'حساب عكسي'
     ];
-    
-    for (int i = 0; i < headers.length; i++) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
-        ..value = TextCellValue(headers[i]);
-    }
+    sheetObject.appendRow(headers.map((e) => TextCellValue(e)).toList());
 
     for (var account in accounts) {
-      sheet.appendRow([
+      sheetObject.appendRow([
         TextCellValue(account.code),
         TextCellValue(account.nameAr),
-        TextCellValue(account.parentCode ?? ""),
-        TextCellValue(account.nature),
-        BoolCellValue(account.isParent),
+        TextCellValue(account.nameEn ?? ''),
+        TextCellValue(account.type),
         IntCellValue(account.level),
-        BoolCellValue(account.requireCostCenter),
-        BoolCellValue(account.isContra),
-        DoubleCellValue(account.currentBalance),
+        DoubleCellValue(account.balance),
+        TextCellValue(account.parentCode ?? ''),
+        TextCellValue(account.nature ?? ''),
+        TextCellValue(account.isParent ? 'نعم' : 'لا'),
+        TextCellValue(account.requireCostCenter ? 'نعم' : 'لا'),
+        TextCellValue(account.isContra ? 'نعم' : 'لا'),
       ]);
     }
 
-    return await _saveExcelFile(excel, "ChartOfAccounts");
+    var fileBytes = excel.save();
+    var directory = await getApplicationDocumentsDirectory();
+    
+    File file = File('${directory.path}/accounts_export_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+    await file.writeAsBytes(fileBytes!);
+    
+    await Share.shareXFiles([XFile(file.path)], text: 'تصدير الحسابات');
   }
 
-  // ============================================================
-  // 3. الوظيفة القديمة: استيراد الحسابات
-  // ============================================================
-  Future<String> importAccountsFromExcel() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['xlsx'],
-      );
+  Future<void> importAccounts(String filePath) async {
+    var bytes = File(filePath).readAsBytesSync();
+    var excel = Excel.decodeBytes(bytes);
 
-      if (result == null) return "تم إلغاء العملية";
+    List<Account> accountsToImport = [];
 
-      var bytes = File(result.files.single.path!).readAsBytesSync();
-      var excel = Excel.decodeBytes(bytes);
-      var table = excel.tables[excel.tables.keys.first];
+    for (var table in excel.tables.keys) {
+      // .skip(1) to ignore header row
+      for (var row in excel.tables[table]!.rows.skip(1)) {
+        final firstCell = row[0]?.value.toString();
+        if (firstCell == null || firstCell.isEmpty) continue;
 
-      if (table == null || table.maxRows <= 1) return "الملف فارغ";
-
-      int successCount = 0;
-      List<List<Data?>> rows = table.rows.skip(1).toList();
-      
-      // ترتيب الادخال (الأب أولاً)
-      rows.sort((a, b) => (a[0]?.value.toString().length ?? 0).compareTo(b[0]?.value.toString().length ?? 0));
-
-      for (var row in rows) {
         try {
-          String code = row[0]?.value.toString() ?? "";
-          String name = row[1]?.value.toString() ?? "";
-          if (code.isEmpty) continue;
+          bool parseBool(dynamic val) {
+             final v = val?.toString().trim().toLowerCase();
+             return v == 'yes' || v == 'true' || v == '1' || v == 'نعم';
+          }
 
-          await _financeService.addAccount(AccountModel(
-            id: 0,
-            code: code,
-            nameAr: name,
-            parentCode: row[2]?.value?.toString() == "" ? null : row[2]?.value?.toString(),
-            nature: row[3]?.value.toString() ?? "debit",
-            isParent: _parseBool(row[4]?.value), // العمود الرابع
-            level: int.tryParse(row[5]?.value.toString() ?? "1") ?? 1,
-            requireCostCenter: _parseBool(row[6]?.value),
-            isContra: _parseBool(row[7]?.value),
-          ));
-          successCount++;
+          final account = Account(
+            id: 0, // ID will be ignored by DB on insert
+            code: row[0]?.value.toString().trim() ?? '',
+            nameAr: row[1]?.value.toString().trim() ?? '',
+            nameEn: row[2]?.value.toString().trim() ?? '',
+            type: row[3]?.value.toString().trim().toLowerCase() ?? 'asset',
+            level: int.tryParse(row[4]?.value.toString() ?? '1') ?? 1,
+            balance: double.tryParse(row[5]?.value.toString() ?? '0.0') ?? 0.0,
+            parentCode: (row[6]?.value?.toString().trim().isEmpty ?? true) ? null : row[6]?.value.toString().trim(),
+            nature: (row[7]?.value?.toString().trim().isEmpty ?? true) ? 'debit' : row[7]!.value.toString().trim(),
+            isParent: parseBool(row[8]?.value),
+            requireCostCenter: parseBool(row[9]?.value),
+            isContra: parseBool(row[10]?.value),
+            isTransaction: !parseBool(row[8]?.value.toString()),
+          );
+          accountsToImport.add(account);
         } catch (e) {
-          debugPrint("Row Import Error: $e");
+          print("خطأ في تحليل السطر: $e");
         }
       }
-      return "تم استيراد $successCount حساب بنجاح";
-    } catch (e) {
-      return "خطأ: $e";
     }
-  }
 
-  // --- دوال مساعدة (Helper Methods) ---
-  Future<String> _saveExcelFile(Excel excel, String prefix) async {
-    var fileBytes = excel.save();
-    if (fileBytes == null) return "فشل الحفظ";
+    // الخطوة الأهم: ترتيب القائمة حسب المستوى (تصاعدياً)
+    accountsToImport.sort((a, b) => a.level.compareTo(b.level));
 
-    String fileName = "${prefix}_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx";
-
-    if (Platform.isWindows || Platform.isMacOS) {
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: 'حفظ ملف الإكسل',
-        fileName: fileName,
-        allowedExtensions: ['xlsx'],
-      );
-      if (outputFile != null) {
-        if (!outputFile.endsWith('.xlsx')) outputFile += '.xlsx';
-        File(outputFile)..createSync(recursive: true)..writeAsBytesSync(fileBytes);
-        return "تم الحفظ: $outputFile";
+    // ✅ الحل النهائي: الإدخال المتتالي بعد الترتيب
+    // هذا يضمن أن كل أب يتم إدخاله قبل ابنه، مما يحل مشكلة المفتاح الأجنبي
+    for (var account in accountsToImport) {
+      try {
+        // استخدام addAccount بدلاً من upsert لضمان الترتيب
+        // يمكن تعديل addAccount لاحقاً ليقوم بـ upsert لصف واحد إذا أردنا تحديث البيانات
+        await _financeService.addAccount(account);
+        print("تم إدخال: ${account.code}");
+      } catch (e) {
+        print("خطأ في إدخال الحساب ${account.code}: $e");
+        // يمكن إيقاف العملية أو الاستمرار حسب الحاجة
+        // rethrow; // لإيقاف العملية
       }
-      return "تم الإلغاء";
-    } else {
-      final dir = await getTemporaryDirectory();
-      final path = "${dir.path}/$fileName";
-      File(path)..createSync(recursive: true)..writeAsBytesSync(fileBytes);
-      await Share.shareXFiles([XFile(path)]);
-      return "تمت المشاركة";
     }
-  }
-
-  bool _parseBool(dynamic value) {
-    if (value == null) return false;
-    String str = value.toString().toLowerCase();
-    return str == 'true' || str == '1' || str == 'yes';
   }
 }

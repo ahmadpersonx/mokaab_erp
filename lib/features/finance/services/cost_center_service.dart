@@ -1,7 +1,7 @@
 // [كود رقم 15 - الصحيح] - cost_center_service.dart
 // لتوليد الأرقام العشوائية
 import 'package:flutter/foundation.dart'; // لعمل debugPrint
-import '../../../core/services/supabase_service.dart';
+import 'package:mokaab_erp/core/services/supabase_service.dart';
 import '../models/cost_center_model.dart';
 
 
