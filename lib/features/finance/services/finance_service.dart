@@ -8,7 +8,7 @@ import '../../../core/services/supabase_service.dart';
 import '../../../core/models/definition_model.dart';
 
 // Models
-import '../models/journal_entry_model.dart';
+import 'package:mokaab_erp/features/finance/models/journal_entry_model.dart';
 import '../../../core/models/account.dart';
 import '../../../core/models/voucher.dart';
 import '../../../core/models/bank.dart';

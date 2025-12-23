@@ -1,0 +1,31 @@
+name: Deploy Flutter Web to Vercel
+
+on:
+  push:
+    branches:
+      - main # غيّر هذا إذا كان اسم الفرع الرئيسي لديك مختلفاً (مثل master)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. جلب الكود من المستودع
+      - uses: actions/checkout@v3
+
+      # 2. إعداد بيئة Flutter
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 3. بناء نسخة الويب من التطبيق
+      - run: flutter build web --release
+
+      # 4. رفع مجلد build/web إلى Vercel
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: "--prod"
+          working-directory: ./build/web
